@@ -23,9 +23,10 @@ const PRODUCTS = [
   { id: 77, name: "Scone" },
 ];
 
-const OPTIMIZE_URL = "/optimize-inventory";
+const OPTIMIZE_URL = "/api/optimize-inventory";
 
 const mainEl = document.querySelector("main");
+const clientModeLink = document.querySelector("#client-mode");
 const storeButton = document.querySelector("#store-button");
 const storeName = document.querySelector("#store-name");
 const storeMenu = document.querySelector("#store-menu");
@@ -160,6 +161,7 @@ function setBusy(isBusy) {
 function render() {
   const store = storeLabel(storeId);
   storeName.textContent = store;
+  if (clientModeLink) clientModeLink.href = `/recommender.html?store_id=${storeId}`;
   document.title = `Starbucks Predict · ${store}`;
   renderMenu();
 

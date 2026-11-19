@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Recomendador de cafés · Starbucks Predict</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='4' fill='%23cdfe6f'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/recommender.css">
+</head>
+<body class="rec-body">
+  <main class="rec-shell">
+    <header class="rec-top">
+      <a class="rec-back" href="/">← Volver al panel</a>
+      <div class="rec-brand">
+        <span class="rec-brand-dot" aria-hidden="true"></span>
+        <span>Starbucks Predict</span>
+      </div>
+      <p class="rec-store" id="rec-store">Tienda San Isidro</p>
+    </header>
+
+    <section class="rec-hero">
+      <p class="rec-kicker">Modo cliente · autoservicio</p>
+      <h1>¿Qué café te recomendamos hoy?</h1>
+      <p class="rec-lede">
+        Elegí una preferencia o dejanos sorprenderte. Usamos el histórico de ventas de esta tienda
+        para sugerirte opciones parecidas.
+      </p>
+    </section>
+
+    <form id="rec-form" class="rec-form" novalidate>
+      <fieldset class="rec-block">
+        <legend><span>01</span> ¿Qué se te antoja?</legend>
+        <div class="rec-choice-grid" id="rec-categories" aria-live="polite">
+          <p class="rec-loading">Cargando opciones…</p>
+        </div>
+      </fieldset>
+
+      <div class="rec-fields">
+        <label class="rec-field">
+          <span>02 · Tipo de bebida</span>
+          <select id="rec-type" name="product_type" disabled>
+            <option value="">Cualquiera</option>
+          </select>
+        </label>
+        <label class="rec-field">
+          <span>03 · Momento del día</span>
+          <select id="rec-hour" name="hour">
+            <option value="8">Mañana</option>
+            <option value="14">Tarde</option>
+            <option value="19">Noche</option>
+          </select>
+        </label>
+        <label class="rec-field">
+          <span>04 · Presupuesto máximo</span>
+          <input id="rec-budget" name="max_price" type="number" min="0" step="0.5" inputmode="decimal" placeholder="Sin límite">
+        </label>
+      </div>
+
+      <details class="rec-advanced">
+        <summary>Ya probé algo que me gustó</summary>
+        <label class="rec-field">
+          <span>Producto de referencia</span>
+          <select id="rec-seed" name="seed_product_id">
+            <option value="">Ninguno</option>
+          </select>
+        </label>
+        <p class="rec-help">Si elegís uno, buscamos cafés parecidos a ese producto.</p>
+      </details>
+
+      <button type="submit" class="rec-submit" id="rec-submit" disabled>Recomendar cafés</button>
+    </form>
+
+    <section class="rec-results" id="rec-results" aria-live="polite" aria-busy="false">
+      <p class="rec-empty">Elegí una opción y tocá «Recomendar cafés» para ver sugerencias.</p>
+    </section>
+
+    <footer class="rec-footer">
+      <p>Modelo KNN · similitud de producto · 5 vecinos</p>
+      <p>Precios referenciales. Las recomendaciones se basan en el histórico de ventas.</p>
+    </footer>
+  </main>
+
+  <script src="/recommender.js"></script>
+</body>
+</html>
