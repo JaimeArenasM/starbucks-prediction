@@ -24,7 +24,7 @@ const PRODUCTS = [
   { id: 77, name: "Scone" },
 ];
 
-const OPTIMIZE_URL = `${API_BASE}/api/optimize-inventory`; /*Se añadio la API de render en el inventario
+const OPTIMIZE_URL = `${API_BASE}/api/optimize-inventory`; // Se añadio la API de render en el inventario 
 
 const mainEl = document.querySelector("main");
 const clientModeLink = document.querySelector("#client-mode");
