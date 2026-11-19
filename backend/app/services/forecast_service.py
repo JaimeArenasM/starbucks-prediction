@@ -224,3 +224,77 @@ def run_forecast(store_id: int | None, product_id: int):
         raise
     except Exception as exc:
         raise AnalysisError(f"Falló el entrenamiento o la predicción SARIMAX: {exc}")
+
+def forecast_multi_day_demand(store_id: int | None, product_id: int, steps: int = 7) -> dict:
+    """Predice la demanda diaria para los próximos `steps` días usando SARIMAX sin generar gráficos."""
+    df = load_dataset()
+
+    if store_id is None:
+        df_scope = df.copy()
+    else:
+        if store_id not in set(df["store_id"].unique()):
+            raise SelectionError(f"La tienda {store_id} no existe.")
+        df_scope = df[df["store_id"] == store_id].copy()
+
+    if product_id not in set(df_scope["product_id"].dropna().unique()):
+        raise SelectionError(f"El producto {product_id} no existe en el ámbito seleccionado.")
+
+    df_prod = df_scope[df_scope["product_id"] == product_id].copy()
+    if df_prod.empty:
+        raise SelectionError("No existen transacciones para esa selección.")
+
+    qty_col = _get_quantity_column(df)
+    if qty_col:
+        daily_data = (
+            df_prod.groupby("transaction_date")
+            .agg({qty_col: "sum", "unit_price": "mean"})
+            .rename(columns={qty_col: "sales"})
+        )
+    else:
+        daily_data = (
+            df_prod.groupby("transaction_date")
+            .agg({"unit_price": "mean"})
+            .rename(columns={"unit_price": "unit_price"})
+        )
+        daily_data["sales"] = df_prod.groupby("transaction_date").size()
+
+    daily_data = daily_data.sort_index().asfreq("D")
+    daily_data["sales"] = daily_data["sales"].fillna(0)
+    daily_data["unit_price"] = daily_data["unit_price"].fillna(daily_data["unit_price"].mean())
+
+    if daily_data["unit_price"].isna().all() or len(daily_data) < 10:
+        raise AnalysisError("Datos insuficientes para proyectar demanda multi-día.")
+
+    daily_data["is_weekend"] = daily_data.index.dayofweek.isin([5, 6]).astype(int)
+    exog_vars = daily_data[["unit_price", "is_weekend"]]
+
+    try:
+        model = SARIMAX(
+            daily_data["sales"],
+            exog=exog_vars,
+            order=(1, 1, 1),
+            seasonal_order=(0, 0, 0, 0),
+            enforce_stationarity=False,
+            enforce_invertibility=False,
+        )
+        results = model.fit(disp=False)
+
+        last_date = daily_data.index[-1]
+        future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=steps, freq="D")
+        future_price = float(daily_data["unit_price"].mean())
+
+        future_exog = pd.DataFrame({
+            "unit_price": [future_price] * steps,
+            "is_weekend": future_dates.dayofweek.isin([5, 6]).astype(int),
+        })
+
+        forecast_obj = results.get_forecast(steps=steps, exog=future_exog)
+        predicted_demands = [max(0.0, float(v)) for v in forecast_obj.predicted_mean]
+
+        return {
+            "dates": [d.strftime("%Y-%m-%d") for d in future_dates],
+            "predicted_demands": predicted_demands,
+            "unit_price": round(future_price, 2),
+        }
+    except Exception as exc:
+        raise AnalysisError(f"Falló la proyección multi-día SARIMAX: {exc}")

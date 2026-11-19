@@ -12,6 +12,19 @@ const STORES = [
 const LEVEL_LABEL = { verde: "Verde", amarillo: "Amarillo", rojo: "Rojo" };
 const INSIGHT = { leche: "leche entera", cafe: "café en grano", bolleria: "bollería" };
 
+const PRODUCTS = [
+  { id: 22, name: "Drip coffee" },
+  { id: 38, name: "Barista Espresso" },
+  { id: 59, name: "Hot chocolate" },
+  { id: 57, name: "Brewed Chai tea" },
+  { id: 51, name: "Brewed Black tea" },
+  { id: 47, name: "Brewed Green tea" },
+  { id: 75, name: "Pastry" },
+  { id: 77, name: "Scone" },
+];
+
+const OPTIMIZE_URL = "/optimize-inventory";
+
 const mainEl = document.querySelector("main");
 const storeButton = document.querySelector("#store-button");
 const storeName = document.querySelector("#store-name");
@@ -31,11 +44,28 @@ const bannerCount = document.querySelector("#banner-count");
 const bannerSlot = document.querySelector("#banner-slot");
 const bannerText = document.querySelector("#banner-text");
 
+const invForm = document.querySelector("#inv-form");
+const invProduct = document.querySelector("#inv-product");
+const invHorizon = document.querySelector("#inv-horizon");
+const invStock = document.querySelector("#inv-stock");
+const invRun = document.querySelector("#inv-run");
+const invSummary = document.querySelector("#inv-summary");
+const invResult = document.querySelector("#inv-result");
+const invUnitCost = document.querySelector("#inv-unit-cost");
+const invOrderCost = document.querySelector("#inv-order-cost");
+const invHoldingCost = document.querySelector("#inv-holding-cost");
+const invStockoutCost = document.querySelector("#inv-stockout-cost");
+
+const INVENTORY_EMPTY =
+  "Elige un producto y pulsa «Calcular plan» para que A* proponga los pedidos de los próximos días.";
+
 let plan = null;
 let storeId = 3;
 let selectedIndex = 0;
 let levelFilter = null;
 let requestSerial = 0;
+let inventorySerial = 0;
+let inventoryBusy = false;
 
 function formatUpdated(iso) {
   const date = new Date(iso);
@@ -52,6 +82,18 @@ function formatTomorrow() {
   const date = new Date();
   date.setDate(date.getDate() + 1);
   return `${date.getDate()} de ${MONTHS[date.getMonth()]} de ${date.getFullYear()}`;
+}
+
+function formatPlanDate(iso) {
+  const date = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return iso;
+  return `${date.getDate()} ${MONTHS[date.getMonth()].slice(0, 3)} ${date.getFullYear()}`;
+}
+
+function clampInteger(value, min, max, fallback) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(number)));
 }
 
 function joinList(items) {
@@ -337,9 +379,213 @@ function showError(message) {
   totalNote.textContent = "La predicción no está disponible.";
 }
 
+function renderProductOptions() {
+  invProduct.replaceChildren();
+  for (const product of PRODUCTS) {
+    const option = document.createElement("option");
+    option.value = String(product.id);
+    option.textContent = product.name;
+    invProduct.append(option);
+  }
+  invProduct.value = String(PRODUCTS[0].id);
+}
+
+function setInventoryBusy(isBusy) {
+  inventoryBusy = isBusy;
+  invRun.disabled = isBusy;
+  invRun.textContent = isBusy ? "Optimizando…" : "Calcular plan";
+  invForm.setAttribute("aria-busy", String(isBusy));
+  invResult.classList.toggle("is-loading", isBusy);
+}
+
+function resetInventory(message = INVENTORY_EMPTY) {
+  inventorySerial += 1;
+  setInventoryBusy(false);
+  invSummary.hidden = true;
+  invSummary.replaceChildren();
+  invResult.replaceChildren();
+  const note = document.createElement("p");
+  note.className = "inv-note";
+  note.textContent = message;
+  invResult.append(note);
+}
+
+function readInventoryForm() {
+  const body = {
+    store_id: storeId,
+    product_id: Number(invProduct.value),
+    horizon_days: clampInteger(invHorizon.value, 1, 30, 7),
+    initial_inventory: clampInteger(invStock.value, 0, 999999, 10),
+  };
+
+  const numericFields = [
+    ["unit_purchase_cost", invUnitCost],
+    ["order_fixed_cost", invOrderCost],
+    ["holding_cost_per_unit", invHoldingCost],
+    ["stockout_penalty_per_unit", invStockoutCost],
+  ];
+  for (const [key, input] of numericFields) {
+    const raw = input.value.trim();
+    if (raw === "") continue;
+    const value = Number(raw);
+    if (Number.isFinite(value) && value >= 0) body[key] = value;
+  }
+  return body;
+}
+
+function summaryTile(label, value) {
+  const tile = document.createElement("div");
+  tile.className = "inv-tile";
+  const labelEl = document.createElement("p");
+  labelEl.className = "label";
+  labelEl.textContent = label;
+  const valueEl = document.createElement("p");
+  valueEl.className = "value";
+  valueEl.textContent = value;
+  tile.append(labelEl, valueEl);
+  return tile;
+}
+
+function renderInventoryTable(body) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "table-scroll inv-table-scroll";
+
+  const table = document.createElement("table");
+  table.className = "inv-table";
+
+  const caption = document.createElement("caption");
+  caption.className = "inv-caption";
+  const scope = body.store_id == null ? "Todas las tiendas" : storeLabel(body.store_id);
+  caption.textContent = `Plan de ${body.plan.length} días para ${body.product_name} en ${scope}.`;
+  table.append(caption);
+
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  for (const title of ["Fecha", "Demanda", "Stock inicial", "Pedido", "Stock final", "No atendido", "Costo del día"]) {
+    const th = document.createElement("th");
+    th.scope = "col";
+    th.textContent = title;
+    headRow.append(th);
+  }
+  thead.append(headRow);
+
+  const tbody = document.createElement("tbody");
+  for (const step of body.plan) {
+    const row = document.createElement("tr");
+    if (step.order_quantity > 0) row.classList.add("has-order");
+    if (step.unmet_demand > 0) row.classList.add("has-unmet");
+
+    const dateCell = document.createElement("th");
+    dateCell.scope = "row";
+    dateCell.textContent = formatPlanDate(step.date);
+
+    const values = [
+      step.predicted_demand.toLocaleString("es-PE"),
+      step.starting_inventory.toLocaleString("es-PE"),
+      step.order_quantity > 0 ? `+${step.order_quantity}` : "—",
+      step.ending_inventory.toLocaleString("es-PE"),
+      step.unmet_demand > 0 ? String(step.unmet_demand) : "—",
+      step.day_cost.toFixed(2),
+    ];
+    const cells = values.map((value, index) => {
+      const cell = document.createElement("td");
+      cell.textContent = value;
+      if (index === 2) cell.className = "inv-order";
+      if (index === 4 && step.unmet_demand > 0) cell.className = "inv-unmet";
+      return cell;
+    });
+
+    row.append(dateCell, ...cells);
+    tbody.append(row);
+  }
+
+  table.append(thead, tbody);
+  wrapper.append(table);
+  return wrapper;
+}
+
+function renderInventory(body) {
+  const product = PRODUCTS.find((item) => item.id === body.product_id);
+  const productName = product ? product.name : `Producto ${body.product_id}`;
+  const totalUnits = body.plan.reduce((sum, step) => sum + step.order_quantity, 0);
+  const unmetTotal = body.plan.reduce((sum, step) => sum + step.unmet_demand, 0);
+
+  invSummary.hidden = false;
+  invSummary.replaceChildren(
+    summaryTile("Costo total estimado", body.total_cost.toFixed(2)),
+    summaryTile("Costo unitario usado", body.unit_purchase_cost_used.toFixed(2)),
+    summaryTile("Nodos explorados (A*)", body.nodes_explored.toLocaleString("es-PE")),
+    summaryTile("Unidades a pedir", totalUnits.toLocaleString("es-PE")),
+  );
+
+  const meta = document.createElement("p");
+  meta.className = "inv-meta";
+  const coverage = unmetTotal > 0
+    ? `${unmetTotal} unidades quedarían sin atender`
+    : "toda la demanda proyectada queda cubierta";
+  meta.textContent = `${productName} · ${storeLabel(body.store_id)} · ${body.plan.length} días · ${coverage}.`;
+
+  invResult.replaceChildren(meta, renderInventoryTable({ ...body, product_name: productName }));
+}
+
+function showInventoryError(message) {
+  setInventoryBusy(false);
+  invSummary.hidden = true;
+  invSummary.replaceChildren();
+  invResult.replaceChildren();
+  const box = document.createElement("p");
+  box.className = "inv-note inv-error";
+  box.setAttribute("role", "alert");
+  box.textContent = message;
+  invResult.append(box);
+}
+
+async function loadInventoryPlan() {
+  const serial = ++inventorySerial;
+  const body = readInventoryForm();
+  setInventoryBusy(true);
+  invSummary.hidden = true;
+  invResult.replaceChildren();
+  const loading = document.createElement("p");
+  loading.className = "inv-note";
+  loading.textContent = "Entrenando SARIMAX y explorando los pedidos con A*…";
+  invResult.append(loading);
+
+  try {
+    const response = await fetch(OPTIMIZE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+    if (serial !== inventorySerial) return;
+    if (!response.ok) {
+      const detail = payload && typeof payload.detail === "string"
+        ? payload.detail
+        : "El optimizador no respondió.";
+      throw new Error(detail);
+    }
+    if (!payload || !Array.isArray(payload.plan)) {
+      throw new Error("El optimizador devolvió una respuesta inesperada.");
+    }
+    renderInventory(payload);
+  } catch (error) {
+    if (serial !== inventorySerial) return;
+    showInventoryError(error.message || "No hay conexión con el optimizador.");
+  } finally {
+    if (serial === inventorySerial) setInventoryBusy(false);
+  }
+}
+
 async function loadStore(id) {
   const serial = ++requestSerial;
   setBusy(true);
+  resetInventory("Selecciona el producto y pulsa «Calcular plan» para esta tienda.");
   totalNote.textContent = "Calculando la predicción SARIMAX…";
   try {
     const response = await fetch(`/api/day-plan?store_id=${id}`);
@@ -414,5 +660,11 @@ for (const button of document.querySelectorAll(".legend-btn")) {
   });
 }
 
+invForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (!inventoryBusy) loadInventoryPlan();
+});
+
+renderProductOptions();
 renderMenu();
 loadStore(storeId);
