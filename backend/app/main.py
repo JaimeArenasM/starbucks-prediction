@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.controllers.forecast_controller import router as forecast_router
+from app.controllers.inventory_controller import router as inventory_router
 
 app = FastAPI(
     title="Coffee Shop Sales Forecast API",
@@ -20,6 +21,7 @@ app.add_middleware(
 )
 
 app.include_router(forecast_router, prefix="/api")
+app.include_router(inventory_router)
 
 @app.get("/health", tags=["Sistema"])
 def health():
