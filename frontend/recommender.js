@@ -1,3 +1,4 @@
+const API_BASE = "https://starbucks-prediction-1.onrender.com";
 const STORE_LABELS = {
   3: "Tienda San Isidro",
   5: "Lower Manhattan",
