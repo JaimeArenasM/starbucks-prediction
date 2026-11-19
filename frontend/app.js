@@ -1,3 +1,4 @@
+const API_BASE = "https://starbucks-prediction-api.onrender.com"; // Conexión al Backend en Render 
 const MONTHS = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",
   "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
@@ -23,7 +24,7 @@ const PRODUCTS = [
   { id: 77, name: "Scone" },
 ];
 
-const OPTIMIZE_URL = "/api/optimize-inventory";
+const OPTIMIZE_URL = `${API_BASE}/api/optimize-inventory`; /*Se añadio la API de render en el inventario
 
 const mainEl = document.querySelector("main");
 const clientModeLink = document.querySelector("#client-mode");
@@ -590,7 +591,7 @@ async function loadStore(id) {
   resetInventory("Selecciona el producto y pulsa «Calcular plan» para esta tienda.");
   totalNote.textContent = "Calculando la predicción SARIMAX…";
   try {
-    const response = await fetch(`/api/day-plan?store_id=${id}`);
+    const response = await fetch(`${API_BASE}/api/day-plan?store_id=${id}`); /* Añadida la apibase */
     const body = await response.json();
     if (serial !== requestSerial) return;
     if (!response.ok) {
