@@ -1,4 +1,4 @@
-const API_BASE = "https://starbucks-prediction-api.onrender.com"; // Conexión al Backend en Render 
+const API_BASE = "https://starbucks-prediction-1.onrender.com"; // Conexión al Backend en Render , es otro render
 const MONTHS = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",
   "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
