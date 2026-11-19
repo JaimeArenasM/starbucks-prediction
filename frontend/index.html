@@ -107,6 +107,62 @@
       </article>
     </section>
 
+    <section class="inventory card panel" aria-labelledby="inv-title">
+      <div class="panel-head inv-head">
+        <div>
+          <h2 id="inv-title">Plan de reposición con A*</h2>
+          <p>Demanda SARIMAX · pedidos optimizados con búsqueda informada</p>
+        </div>
+        <p class="live"><i></i>Pedidos, almacenaje y faltantes</p>
+      </div>
+
+      <form id="inv-form" class="inv-controls">
+        <label class="inv-field">
+          <span>Producto</span>
+          <select id="inv-product" name="product_id"></select>
+        </label>
+        <label class="inv-field">
+          <span>Horizonte (días)</span>
+          <input id="inv-horizon" name="horizon_days" type="number" min="1" max="30" step="1" value="7" required>
+        </label>
+        <label class="inv-field">
+          <span>Stock inicial</span>
+          <input id="inv-stock" name="initial_inventory" type="number" min="0" step="1" value="10" required>
+        </label>
+        <button type="submit" class="inv-run" id="inv-run">Calcular plan</button>
+      </form>
+
+      <details class="inv-advanced">
+        <summary>Parámetros de costo</summary>
+        <div class="inv-controls">
+          <label class="inv-field">
+            <span>Costo unitario de compra</span>
+            <input id="inv-unit-cost" name="unit_purchase_cost" type="number" min="0" step="0.01" placeholder="50% del precio">
+          </label>
+          <label class="inv-field">
+            <span>Costo fijo por pedido</span>
+            <input id="inv-order-cost" name="order_fixed_cost" type="number" min="0" step="0.01" value="15">
+          </label>
+          <label class="inv-field">
+            <span>Almacenaje por unidad/día</span>
+            <input id="inv-holding-cost" name="holding_cost_per_unit" type="number" min="0" step="0.01" value="0.5">
+          </label>
+          <label class="inv-field">
+            <span>Penalización por faltante</span>
+            <input id="inv-stockout-cost" name="stockout_penalty_per_unit" type="number" min="0" step="0.01" value="5">
+          </label>
+        </div>
+      </details>
+
+      <div id="inv-summary" class="inv-summary" aria-live="polite" hidden></div>
+
+      <div id="inv-result" class="inv-result">
+        <p class="inv-note">Elige un producto y pulsa «Calcular plan» para que A* proponga los pedidos de los próximos días.</p>
+      </div>
+
+      <p class="inv-note inv-footnote">La demanda proviene del histórico SARIMAX (el dataset termina el 30 jun 2023). El costo total incluye pedidos, almacenaje y faltantes.</p>
+    </section>
+
     <section class="banner" id="banner">
       <div class="banner-count" id="banner-count">—</div>
       <div>
