@@ -308,7 +308,7 @@ function readForm() {
 
 async function loadOptions() {
   try {
-    const response = await fetch(`/api/coffee-options?store_id=${storeId}`);
+    fetch(`${API_BASE}/api/coffee-options?store_id=${storeId}`)  // Agregada la API 
     const payload = await response.json().catch(() => null);
 
     if (!response.ok) {
@@ -340,7 +340,7 @@ async function loadRecommendations() {
   showLoading();
 
   try {
-    const response = await fetch("/api/recommend-coffees", {
+    fetch(`${API_BASE}/api/recommend-coffees`, { // Agregada la API
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
