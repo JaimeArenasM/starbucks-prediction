@@ -309,7 +309,7 @@ function readForm() {
 
 async function loadOptions() {
   try {
-    fetch(`${API_BASE}/api/coffee-options?store_id=${storeId}`)  // Agregada la API 
+    const response = await fetch(`${API_BASE}/api/coffee-options?store_id=${storeId}`); // Agregada la API v2
     const payload = await response.json().catch(() => null);
 
     if (!response.ok) {
@@ -341,10 +341,10 @@ async function loadRecommendations() {
   showLoading();
 
   try {
-    fetch(`${API_BASE}/api/recommend-coffees`, { // Agregada la API
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+    const response = await fetch(`${API_BASE}/api/recommend-coffees`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
     });
     const payload = await response.json().catch(() => null);
 
